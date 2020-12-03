@@ -1,14 +1,15 @@
 package main
 
 import (
+	"go.uber.org/dig"
+	"time"
+	"context"
 	"github.com/slayv1/crud/cmd/app"
 	"github.com/slayv1/crud/pkg/customers"
 	"net/http"
-	"database/sql"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"os"
-	_ "github.com/jackc/pgx/v4/stdlib"
-	
 )
 
 func main() {
@@ -28,30 +29,49 @@ func main() {
 
 //функция запуска сервера
 func execute(host, port, dbConnectionString string) (err error){
-	//поключаемся к бд
-	db, err := sql.Open("pgx", dbConnectionString)
+	
+
+	//здес обявляем слайс с зависимостями тоест добавляем все сервисы и конструкторы 
+	dependencies := []interface{}{
+		app.NewServer,
+		http.NewServeMux,
+		func() (*pgxpool.Pool, error){
+			connCtx, _ := context.WithTimeout(context.Background(), time.Second*5)
+			return pgxpool.Connect(connCtx, dbConnectionString)
+		},
+		customers.NewService,
+		func(server *app.Server)*http.Server{
+			return &http.Server{
+				Addr:host+":"+port,
+				Handler: server,
+			}
+		},
+	}
+
+
+	//обявляем новый контейнер
+	container := dig.New()
+	//в цикле регистрируем все зависимостив контейнер
+	for _, v := range dependencies {
+		err = container.Provide(v)
+		if err !=nil{
+			return err
+		}
+	}
+
+	/*вызываем метод Invoke позволяет вызвать на контейнере функøия, при этом подставит нам в
+параметры тот объект, который нужно "собрать" (именно в этот момент все
+зависимости будут собраны, либо мы полуùим ощибку)*/
+	err = container.Invoke(func(server *app.Server){
+		server.Init()
+	})
 	//если получили ошибку то вернем его
-	if err !=nil{
+	if err != nil{
 		return err
 	}
-	//в конце закрываем подключения к бд
-	defer db.Close()
 
-	//обьявляем новый мукс
-	mux := http.NewServeMux()
-	//обьявляем новый сервис с бд
-	customerService := customers.NewService(db)
-	//обьявляем новый сервер с мукс и сервисами
-	server := app.NewServer(mux, customerService)
-	//Иницализируем наш сервер регистрируем роуты
-	server.Init()
-
-	//создаем новый Http server
-	httpServer := &http.Server{
-		Addr:host+":"+port,
-		Handler: server,
-	}
-
-	//запускаем сервер
-	return httpServer.ListenAndServe()
+	
+	return container.Invoke(func(server *http.Server) error{
+		return server.ListenAndServe()
+	})
 }
