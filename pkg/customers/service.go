@@ -36,7 +36,7 @@ type Customer struct {
 
 //All ....
 func (s *Service) All(ctx context.Context) (cs []*Customer, err error) {
-
+ 
 	//это наш sql запрос
 	sqlStatement := `select * from customers`
 
