@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/slayv1/crud/cmd/app/middleware"
+	"github.com/slayv1/crud/pkg/security"
 	"github.com/slayv1/crud/pkg/customers"
 	"encoding/json"
 	"errors"
@@ -10,42 +12,42 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//406.75
-//4.0675p
-//465p
-
 //Server ...
 type Server struct {
 	mux         *mux.Router
 	customerSvc *customers.Service
+	securitySvc *security.Service
 }
-
 //NewServer ... создает новый сервер
-func NewServer(m *mux.Router, cSvc *customers.Service) *Server {
-	return &Server{mux: m, customerSvc: cSvc}
+func NewServer(m *mux.Router, cSvc *customers.Service, sSvc *security.Service) *Server {
+	return &Server{
+		mux: m,
+		customerSvc: cSvc,
+		securitySvc: sSvc,
+	}
 }
-
 // функция для запуска хендлеров через мукс
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
-
 //Init ... инициализация сервера
 func (s *Server) Init() {
 	//s.mux.HandleFunc("/customers.getById", s.handleGetCustomerByID)
 
 	s.mux.HandleFunc("/customers", s.handleGetAllCustomers).Methods("GET")
-	s.mux.HandleFunc("/customers", s.handleSave).Methods("POST")
 	s.mux.HandleFunc("/customers/active", s.handleGetAllActiveCustomers).Methods("GET")
 
 	s.mux.HandleFunc("/customers/{id}", s.handleGetCustomerByID).Methods("GET")
 	s.mux.HandleFunc("/customers/{id}/block", s.handleBlockByID).Methods("POST")
 	s.mux.HandleFunc("/customers/{id}/block", s.handleUnBlockByID).Methods("DELETE")
 	s.mux.HandleFunc("/customers/{id}", s.handleDelete).Methods("DELETE")
+	s.mux.HandleFunc("/customers", s.handleSave).Methods("POST")
+
+	// как показона в лекции оборачиваем все роуты с мидлварем Basic из пакета middleware
+	s.mux.Use(middleware.Basic(s.securitySvc.Auth))
 	
 
 	/*
-		http://127.0.0.1:9999/customers.save?id=0&name=Shahlo&phone=992928015290
 		http://127.0.0.1:9999/customers.save?id=0&name=Najibullo&phone=992931441244
 		http://127.0.0.1:9999/customers.getById?id=1
 		http://127.0.0.1:9999/customers.getAll
