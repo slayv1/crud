@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 )
 
 //Server ...
