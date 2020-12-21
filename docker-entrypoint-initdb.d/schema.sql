@@ -1,3 +1,4 @@
+
 create table if not exists customers
 (
     id bigserial primary key,
@@ -66,8 +67,3 @@ create table if not exists sales_positions
     qty     integer not null default 0 check(qty >=0),
     created     timestamp not null default current_timestamp 
 );
-
-
-
-insert into managers (name, phone, password, is_admin)
-values ('vasya', '+992000000001', '$2a$10$OaUtjCNv2DT5x/dXcV.P3eYkIPIRtBr/v8Nluwifz6brSkfyXOh6m', true);
